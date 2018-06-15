@@ -11,7 +11,6 @@ public class ReactWheelGame extends ApplicationAdapter {
 
 	@Override
 	public void create () {
-		System.out.println("Creating Game...");
 		wheel = new Wheel();
 	}
 

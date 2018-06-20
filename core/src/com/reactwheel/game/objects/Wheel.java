@@ -13,7 +13,6 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 
-import sun.rmi.runtime.Log;
 
 
 public class Wheel extends ShapeRenderer {
@@ -25,16 +24,16 @@ public class Wheel extends ShapeRenderer {
     private float dir;
     private Vector2 target;
     private Vector2 prevTarget;
-    private double dist;
     private boolean gameRunning;
     private boolean targetHit;
     private int score;
     private BitmapFont scoreFont;
     private BitmapFont messageFont;
     private boolean targetWasInRange;
+    private Vector2 hitPoint;
 
     private static final Color BLUE = new Color(52/255f, 152/255f, 219/255f, 1f);
-    private static final Color WHITE = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+    private static final Color WHITE = new Color(255/255f, 249/255f, 196/255f, 1.0f);
     private static final Color BACKGROUND = new Color(38/255f, 50/255f, 56/255f, 1f);
     private static final Color RED = new Color(231/255f, 76/255f, 60/255f, 1f);
 
@@ -45,6 +44,7 @@ public class Wheel extends ShapeRenderer {
 
     private Animation<TextureRegion> explosionAnimation;
     private Texture explosionSheet;
+    private Texture tapToPlay;
 
     float stateTime;
 
@@ -55,16 +55,16 @@ public class Wheel extends ShapeRenderer {
         center = new Vector2(screenWidth / 2.0f, screenHeight-screenHeight/3.0f);
         radius = Gdx.graphics.getWidth() / 2.5f;
         arm = new Vector2(center.x+radius/1.1f, center.y);
+        hitPoint = new Vector2((arm.x*1.1f)/1.3f, arm.y);
         angle = 0.0f;
         isClockwise = true;
         dir = 1.0f;
         target = new Vector2(center.x, center.y+radius/1.3f);
-        dist = 0.0;
         gameRunning = false;
         this.batch = batch;
         targetHit = false;
         targetWasInRange = false;
-        prevTarget = new Vector2();
+        prevTarget = new Vector2(target.x, target.y);
         scoreFont = new BitmapFont();
         scoreFont.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear,
                                                      Texture.TextureFilter.Linear);
@@ -76,7 +76,7 @@ public class Wheel extends ShapeRenderer {
                                                        Texture.TextureFilter.Linear);
 
         messageFont.getData().setScale(6.0f);
-
+        tapToPlay = new Texture("taptoplay.png");
 
         initAnimation();
 
@@ -99,7 +99,7 @@ public class Wheel extends ShapeRenderer {
             }
         }
 
-        explosionAnimation = new Animation<TextureRegion>(0.0055f, explosionFrames);
+        explosionAnimation = new Animation<TextureRegion>(0.0045f, explosionFrames);
         stateTime = 0.0f;
 
     }
@@ -134,6 +134,10 @@ public class Wheel extends ShapeRenderer {
         circle(center.x, center.y, radius/2.5f, 100);
 
         renderTarget();
+
+        setColor(WHITE);
+        circle(hitPoint.x, hitPoint.y, 10f, 100);
+
         end();
 
         batch.begin();
@@ -145,8 +149,8 @@ public class Wheel extends ShapeRenderer {
         scoreFont.draw(batch, String.valueOf(score), center.x, center.y);
 
         if(!gameRunning)
-                messageFont.draw(batch, "Tap Screen To Play!",
-                         Gdx.graphics.getWidth()/8, Gdx.graphics.getHeight()/4);
+            batch.draw(tapToPlay, (Gdx.graphics.getWidth() - tapToPlay.getWidth())/2f,
+                    Gdx.graphics.getHeight()/4f);
 
         batch.end();
 
@@ -193,14 +197,18 @@ public class Wheel extends ShapeRenderer {
 
     }
 
+    public double distance(Vector2 p1, Vector2 p2){
+        return Math.sqrt(Math.pow((p2.x - p1.x), 2) +
+                Math.pow((p2.y - p1.y), 2));
+
+    }
+
 
     public void checkInput() {
         boolean touched = Gdx.input.justTouched();
 
-        if(dist > 80.0 && dist < 90.0)
+        if(distance(hitPoint, target) > 20.0 && distance(hitPoint, target) < 40.0)
             targetWasInRange = true;
-
-
 
 
         if(gameRunning){
@@ -212,12 +220,17 @@ public class Wheel extends ShapeRenderer {
                 Random rnd = new Random();
                 float ang = 0.0f + rnd.nextFloat() * (360.0f - 0.0f);
                 score++;
-                target = rotate(target, ang);
+
+                do {
+                    target = rotate(target, ang);
+                }while(distance(target, prevTarget) < 200);
+
+
 
             } else if(touched && !targetInRange()){
                 stopGame();
 
-            } else if(!touched && targetWasInRange && dist > 100){
+            } else if(!touched && targetWasInRange && distance(hitPoint, target) > 100){
                 stopGame();
             }
 
@@ -236,8 +249,8 @@ public class Wheel extends ShapeRenderer {
     }
 
     private boolean targetInRange(){
-        float hitRange = 45.0f*2.0f;
-        boolean inRange = dist <= hitRange;
+        float hitRange = 30f;
+        boolean inRange = distance(hitPoint, target) <= hitRange;
 
         return inRange;
 
@@ -258,6 +271,8 @@ public class Wheel extends ShapeRenderer {
         //reset everything when game is lost
         arm.x = center.x+radius/1.1f;
         arm.y = center.y;
+        hitPoint.x = (arm.x/1.08f);
+        hitPoint.y = arm.y;
         target.x = center.x;
         target.y = center.y+radius/1.3f;
         isClockwise = true;
@@ -270,11 +285,8 @@ public class Wheel extends ShapeRenderer {
         checkInput();
         dir = (isClockwise) ? -1.0f : 1.0f;
         arm = rotate(arm, angle);
+        hitPoint = rotate(hitPoint, angle);
 
-        //track distance between arm and target
-        dist = Math.sqrt(Math.pow((target.x - arm.x), 2) +
-                Math.pow((target.y - arm.y), 2));
-        
     }
 
     public void dispose(){
